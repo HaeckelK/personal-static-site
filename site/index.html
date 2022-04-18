@@ -1,9 +1,63 @@
 <!DOCTYPE html>
 <html>
-<body>
 
-<h1>Placeholder Title</h1>
-<p>Just checking deployment works.</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anki Card Creator Tools</title>
 
+  <script src="https://kit.fontawesome.com/2bdedf486b.js" crossorigin="anonymous"></script>
+  <script src="components.js"></script>
+
+  <script>var exports = {};</script>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+
+</head>
+<div id="app">
+  <page-banner :pagename="sitename"></page-banner>
+  <section class="section">
+    <div class="columns">
+      <div class="column">
+        <input class="input" type="text" placeholder="Thing being defined" v-model="clozeCard.thingBeingDefined">
+        <input class="input" type="text" placeholder="Definition" v-model="clozeCard.definitionOfThing">
+
+        <button class="button is-small" @click='copyAnkiText(definitionAnkiText)'>Copy</button>
+        <pre>{{ definitionAnkiText }}</pre>
+      </div>
+    </div>
+  </section>
+  <page-footer></page-footer>
+</div>
+<script type="text/javascript">
+  var webstore = new Vue({
+    el: '#app',
+    components: {
+      'page-banner': PageBanner,
+      'page-footer': PageFooter,
+    },
+    data: {
+      sitename: "Anki Card Creator Tools",
+      clozeCard: {
+        thingBeingDefined: '',
+        definitionOfThing: '',
+      },
+    },
+    methods: {
+      copyAnkiText(text) {
+        navigator.clipboard.writeText(text);
+        console.log(text);
+      },
+    },
+    computed: {
+      definitionAnkiText() {
+        return `Definition of {{c1::${this.clozeCard.thingBeingDefined}}}:
+        
+{{c2::${this.clozeCard.definitionOfThing}}}`;
+      },
+    }
+  });
+</script>
 </body>
+
 </html>
