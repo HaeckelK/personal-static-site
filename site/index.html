@@ -1,9 +1,255 @@
 <!DOCTYPE html>
 <html>
-<body>
 
-<h1>Placeholder Title</h1>
-<p>Just checking deployment works.</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anki Card Creator Tools</title>
 
+  <script src="https://kit.fontawesome.com/2bdedf486b.js" crossorigin="anonymous"></script>
+  <script src="components.js"></script>
+
+  <script>var exports = {};</script>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <script src="https://unpkg.com/python-argparse-generator@0.2/lib/index.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+
+</head>
+<div id="app">
+  <page-banner :pagename="sitename"></page-banner>
+  <section class="section">
+    
+    <!-- div needed -->
+    <input class="input" type="text" placeholder="Thing being defined" v-model="clozeCard.thingBeingDefined">
+    <input class="input" type="text" placeholder="Definition" v-model="clozeCard.definitionOfThing">
+
+    <button class="button is-small" @click='copyAnkiText'>Copy</button>
+    <pre>{{ definitionAnkiText }}</pre>
+
+
+
+    <div class="columns">
+      <div class="column is-two-thirds box">
+        <button class="button is-small" v-bind:class="{ 'is-light': copiedLatest }" @click='copyArgparse'>Copy</button>
+        <pre>{{ argparse }}</pre>
+      </div>
+      <div class="column box">
+        <div class="tabs">
+          <ul>
+            <li v-bind:class="{ 'is-active': argumentsPanelIsActive }"><a
+                @click="activateTab('arguments')">Arguments</a></li>
+            <li v-bind:class="{ 'is-active': settingsPanelIsActive }"><a @click="activateTab('settings')">Settings</a>
+            </li>
+          </ul>
+        </div>
+        <div id="cliArguments" v-show="activeTab === 'arguments'">
+          <argument-form @add-argument="addArgument" v-show="!editorOpen"></argument-form>
+          <div v-for="argument in arguments" :key="argument.id">
+            <argument-display v-bind:arg="argument" @delete-argument="deleteArgument(argument.id)"
+              @copy-argument="copyArgument" @move-up="moveArgumentUp(argument.id)"
+              @move-down="moveArgumentDown(argument.id)" @edited-argument="updateArgument"
+              @editor-open="editorOpen = true" @editor-closed="editorOpen = false">
+            </argument-display>
+          </div>
+          <br>
+          <button class="button is-danger" @click="deleteAllArguments" v-show="arguments.length > 0">Delete
+            All</button>
+        </div>
+        <div id="settingsPanel" v-show="activeTab === 'settings'">
+          <div id="advancedSettingsArea">
+            <h4 class="title">Advanced Settings</h4>
+            <label class="checkbox">
+              <input type="checkbox" v-model="advancedSettings.typeHints">
+              Type Hints
+            </label>
+
+            <div class="field">
+              <label class="label">Parser Variable Name</label>
+              <div class="control">
+                <input class="input" type="text" placeholder="Text input" v-model="advancedSettings.parserName">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Main Function Placeholder</label>
+              <div class="control">
+                <input class="input" type="text" placeholder="Text input" v-model="advancedSettings.mainContents">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Main Function Name</label>
+              <div class="control">
+                <input class="input" type="text" placeholder="Text input" v-model="advancedSettings.mainName">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">CLI Function Name</label>
+              <div class="control">
+                <input class="input" type="text" placeholder="Text input" v-model="advancedSettings.cliName">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Argument Return Object Name</label>
+              <div class="control">
+                <input class="input" type="text" placeholder="Text input" v-model="advancedSettings.argsName">
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <page-footer></page-footer>
+</div>
+<script type="text/javascript">
+  var webstore = new Vue({
+    el: '#app',
+    components: {
+      'page-banner': PageBanner,
+      'page-footer': PageFooter,
+      'argument-display': CLIAgumentDisplay,
+      'argument-form': CLIArgumentForm
+    },
+    data: {
+      sitename: "Anki Card Creator Tools",
+      clozeCard: {
+        thingBeingDefined: '',
+        definitionOfThing: '',
+      },
+      advancedSettings: {
+        typeHints: true,
+        parserName: 'parser',
+        mainContents: '# Contents of main',
+        mainName: 'main',
+        cliName: 'cli',
+        argsName: 'args'
+      },
+      nextArgumentID: 5,
+      arguments: [{ "id": 1, "name": "filename", "type": "str", "variableName": "filename", "default": "/data/file.csv", "required": false },
+      { "id": 2, "name": "limit", "type": "int", "variableName": "limit", "default": "10", "required": false },
+      { "id": 3, "name": "--overwrite", "type": "bool", "variableName": "overwrite", "default": "true", "required": false },
+      { "id": 4, "name": "--delay", "type": "int", "variableName": "delay", "default": "", "required": false }],
+      message: "",
+      activeTab: 'arguments',
+      editorOpen: false,
+      copiedLatest: false
+    },
+    methods: {
+      copyArgparse() {
+        navigator.clipboard.writeText(this.argparse);
+        this.copiedLatest = true;
+      },
+      copyAnkiText() {
+        navigator.clipboard.writeText(this.definitionAnkiText);
+      },
+      activateTab(tabName) {
+        this.activeTab = tabName;
+      },
+      flashMessage(message) {
+        console.log(message);
+        this.message = message;
+      },
+      parseRawArgument(rawArgument) {
+        let items = rawArgument.split(",").filter(e => e).map(x => x.trim());
+        let name = items[0];
+        let type = items[1] || "str";
+        let value = items[2];
+        return newArgument(name, type, '', value);
+      },
+      deleteAllArguments() {
+        this.editorOpen = false;  // Can't have an open editor if there are no arguments
+        this.arguments = [];
+        this.flashMessage('All arguments deleted');
+      },
+      deleteArgument(argumentID) {
+        const index = this.arguments.findIndex(arg => arg.id === argumentID);
+        const argument = this.arguments[index];
+        this.arguments.splice(index, 1);
+        this.flashMessage(`Deleted argument ${argument.name}`);
+      },
+      copyArgument(argumentID) {
+        const argument = this.arguments.find(arg => arg.id === argumentID);
+        let newArgument = JSON.parse(JSON.stringify(argument));
+        newArgument.id = this.nextArgumentID;
+        this.nextArgumentID++;
+        this.arguments.push(newArgument);
+        this.flashMessage(`Copied argument ${argument.name}`);
+      },
+      updateArgument(updatedArgument) {
+        const index = this.arguments.findIndex(arg => arg.id === updatedArgument.id);
+        this.arguments.splice(index, 1, updatedArgument);
+        this.flashMessage(`Updated argument ${updatedArgument.name}`);
+      },
+      moveArgumentUp(argumentID) {
+        const index = this.arguments.findIndex(arg => arg.id === argumentID);
+        const arg = this.arguments[index];
+        const toIndex = index - 1;
+        if (toIndex < 0) {
+          return;
+        }
+        this.arguments.splice(index, 1);
+        this.arguments.splice(toIndex, 0, arg);
+      },
+      moveArgumentDown(argumentID) {
+        const index = this.arguments.findIndex(arg => arg.id === argumentID);
+        const arg = this.arguments[index];
+        const toIndex = index + 1;
+        if (toIndex >= this.arguments.length) {
+          return;
+        }
+        this.arguments.splice(index, 1);
+        this.arguments.splice(toIndex, 0, arg);
+      },
+      addArgument(argument) {
+        this.arguments.push({
+          "id": this.nextArgumentID,
+          "name": argument.name,
+          "type": argument.type,
+          "variableName": argument.variableName,
+          "default": argument.default,
+          "required": argument.required
+        })
+        this.nextArgumentID++;
+        this.flashMessage(`Added argument: ${argument.name}`);
+      }
+    },
+    watch: {
+      argparse: function (val) {
+        // When final output changes then user's copy to clipboard is out of date
+        this.copiedLatest = false;
+      }
+    },
+    computed: {
+      definitionAnkiText() {
+        return `Definition of {{c1::${this.clozeCard.thingBeingDefined}}}:
+        
+{{c2::${this.clozeCard.definitionOfThing}}}`;
+      },
+      argumentsPanelIsActive() {
+        return this.activeTab === 'arguments';
+      },
+      settingsPanelIsActive() {
+        return this.activeTab === 'settings';
+      },
+      argparse() {
+        let settings = defaultSettings();
+
+        settings.typeHints = this.advancedSettings.typeHints;
+        settings.parserName = this.advancedSettings.parserName;
+        settings.mainContents = this.advancedSettings.mainContents;
+        settings.mainName = this.advancedSettings.mainName;
+        settings.cliName = this.advancedSettings.cliName;
+        settings.argsName = this.advancedSettings.argsName;
+        let args = this.arguments;
+        return argparseCode(args, settings);
+      }
+    }
+  });
+</script>
 </body>
+
 </html>
